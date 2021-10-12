@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#0C5776</color>
+    <color name="colorPrimaryDark">#001C44</color>\
+    <color name="ColorAccent">#2D99AE</color>
+    <color name="primary_text_color">#001C44</color>
+    <color name="secondary_text_color">#F8DAD0</color>
+    <color name="button_background_color">#2D99AE</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
+
+<!--
+BlueBlack #001C44
+DarkBlue #0C5776
+Teal #2D99AE
+LightBlue #BCFEFE
+Beige #F8DAD0
+-->
