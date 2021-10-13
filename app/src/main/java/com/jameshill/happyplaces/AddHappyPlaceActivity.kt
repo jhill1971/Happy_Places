@@ -1,12 +1,18 @@
 package com.jameshill.happyplaces
 
 import android.Manifest
+import android.app.Activity
 import android.app.DatePickerDialog
 import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -18,6 +24,10 @@ import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import kotlinx.android.synthetic.main.activity_add_happy_place.*
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -89,9 +99,9 @@ class AddHappyPlaceActivity : AppCompatActivity(), View.OnClickListener {
                     pictureDialogItems
                 ) { dialog, which ->
                     when (which) {
-                        // Here we have create the methods for image selection from GALLERY
+
                         0 -> choosePhotoFromGallery()
-                        1 -> Toast.makeText(this@AddHappyPlaceActivity,"Camera selection coming soon...", Toast.LENGTH_SHORT).show()
+                        1 -> takePhotoFromCamera()
                     }
                 }
                 pictureDialog.show()
@@ -110,6 +120,65 @@ class AddHappyPlaceActivity : AppCompatActivity(), View.OnClickListener {
         et_date.setText(sdf.format(cal.time).toString()) // A selected date using format which we have used is set to the UI.
     }
 
+    public override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == Activity.RESULT_OK){
+            if(requestCode == GALLERY){
+                if (data != null){
+                    val contentURI = data.data
+                    try{
+                        val selectedImageBitmap = MediaStore.Images.
+                        Media.getBitmap(this.contentResolver, contentURI)
+
+
+                        val saveImageToInternalStorage = saveImageToInternalStorage(selectedImageBitmap)
+                        Log.e("saved image", "Path :: ${saveImageToInternalStorage}" )
+
+                        iv_place_image.setImageBitmap(selectedImageBitmap)
+                    }catch (e: IOException){
+                        e.printStackTrace()
+                        Toast.makeText(this@AddHappyPlaceActivity,
+                            "Failed to load image", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }else if (requestCode == CAMERA){
+                val thumbnail: Bitmap = data!!.extras!!.get("data") as Bitmap
+                val saveImageToInternalStorage = saveImageToInternalStorage(thumbnail)
+                Log.e("saved image", "Path :: ${saveImageToInternalStorage}" )
+
+                iv_place_image.setImageBitmap(thumbnail)
+            }
+        }
+    }
+
+
+    private fun takePhotoFromCamera(){
+        Dexter.withActivity(this)
+            .withPermissions(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.CAMERA
+            )
+            .withListener(object : MultiplePermissionsListener {
+                override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
+
+                    // Here after all the permission are granted launch the gallery to select and image.
+                    if (report!!.areAllPermissionsGranted()) {
+                        val galleryIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                        startActivityForResult(galleryIntent, CAMERA)
+                    }
+                }
+
+                override fun onPermissionRationaleShouldBeShown(
+                    permissions: MutableList<PermissionRequest>?,
+                    token: PermissionToken?
+                ) {
+                    showRationalDialogForPermissions()
+                }
+            }).onSameThread()
+            .check()
+        // END
+    }
 
     /**
      * A method is used for image selection from GALLERY / PHOTOS of phone storage.
@@ -126,8 +195,8 @@ class AddHappyPlaceActivity : AppCompatActivity(), View.OnClickListener {
 
                     // Here after all the permission are granted launch the gallery to select and image.
                     if (report!!.areAllPermissionsGranted()) {
-
-                        Toast.makeText(this@AddHappyPlaceActivity,"Storage READ/WRITE permission are granted. Now you can select an image from GALLERY or lets says phone storage.", Toast.LENGTH_SHORT).show()
+                        val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                        startActivityForResult(galleryIntent, GALLERY)
                     }
                 }
 
@@ -167,4 +236,26 @@ class AddHappyPlaceActivity : AppCompatActivity(), View.OnClickListener {
             }.show()
     }
     // END
+    private fun saveImageToInternalStorage(bitmap: Bitmap):Uri{
+        val wrapper = ContextWrapper(applicationContext)
+        var file = wrapper.getDir(IMAGE_DIRECTORY, Context.MODE_PRIVATE)
+        file = File(file, "${UUID.randomUUID()}.jpg")
+
+        try{
+            val stream: OutputStream = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+            stream.flush()
+            stream.close()
+        }catch (e: IOException){
+            e.printStackTrace()
+        }
+        return Uri.parse(file.absolutePath)
+    }
+
+
+    companion object {
+        private const val GALLERY = 1
+        private const val CAMERA = 2
+        private const val IMAGE_DIRECTORY = "Happy Places Images"
+    }
 }
